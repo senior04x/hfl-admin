@@ -44,12 +44,13 @@ export async function GET() {
 
     console.log('Players fetched successfully:', players.length);
     return NextResponse.json(players);
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Error fetching players:', error);
-    console.error('Error details:', error.message);
+    const details = error instanceof Error ? error.message : JSON.stringify(error);
+    console.error('Error details:', details);
     return NextResponse.json({ 
       error: 'Failed to fetch players',
-      details: error.message 
+      details
     }, { status: 500 });
   }
 }
