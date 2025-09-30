@@ -57,10 +57,10 @@ export async function GET() {
     return NextResponse.json(teams);
   } catch (error) {
     console.error('Error fetching teams:', error);
-    console.error('Error details:', error.message);
+    const message = (error instanceof Error) ? error.message : 'Unknown error';
     return NextResponse.json({ 
       error: 'Failed to fetch teams',
-      details: error.message 
+      details: message 
     }, { status: 500 });
   }
 }
