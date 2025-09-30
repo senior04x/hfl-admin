@@ -1,7 +1,6 @@
 module.exports = {
   extends: [
-    'expo',
-    '@react-native-community',
+    'next/core-web-vitals',
     '@typescript-eslint/recommended',
     'prettier',
   ],
