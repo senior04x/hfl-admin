@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { mongodbService } from '@/lib/mongodbService';
+import { realTimeService } from '@/lib/realTimeService';
 
 interface DashboardStats {
   totalTeams: number;
@@ -21,31 +23,60 @@ export function Dashboard() {
 
   useEffect(() => {
     fetchStats();
+    
+    // Setup real-time updates
+    const setupRealTime = async () => {
+      try {
+        await realTimeService.connect();
+        
+        // Subscribe to updates
+        const unsubscribeMatch = realTimeService.onMatchUpdate((match) => {
+          console.log('Real-time match update:', match);
+          fetchStats(); // Refresh stats
+        });
+        
+        const unsubscribeTeam = realTimeService.onTeamUpdate((team) => {
+          console.log('Real-time team update:', team);
+          fetchStats(); // Refresh stats
+        });
+        
+        const unsubscribeApplication = realTimeService.onApplicationUpdate((application) => {
+          console.log('Real-time application update:', application);
+          fetchStats(); // Refresh stats
+        });
+        
+        // Cleanup on unmount
+        return () => {
+          unsubscribeMatch();
+          unsubscribeTeam();
+          unsubscribeApplication();
+          realTimeService.disconnect();
+        };
+      } catch (error) {
+        console.error('Real-time setup failed:', error);
+      }
+    };
+    
+    setupRealTime();
   }, []);
 
   const fetchStats = async () => {
     try {
       setLoading(true);
       
-      const [teamsRes, matchesRes, usersRes, applicationsRes] = await Promise.all([
-        fetch('/api/teams'),
-        fetch('/api/matches'),
-        fetch('/api/users'),
-        fetch('/api/league-applications'),
-      ]);
-
-      const [teams, matches, users, applications] = await Promise.all([
-        teamsRes.json(),
-        matchesRes.json(),
-        matchesRes.json(),
-        applicationsRes.json(),
+      // Use MongoDB API instead of Firebase
+      const [teamsRes, matchesRes, playersRes, applicationsRes] = await Promise.all([
+        mongodbService.getTeams(),
+        mongodbService.getMatches(),
+        mongodbService.getPlayers(),
+        mongodbService.getApplications(),
       ]);
 
       setStats({
-        totalTeams: Array.isArray(teams) ? teams.length : 0,
-        totalMatches: Array.isArray(matches) ? matches.length : 0,
-        totalUsers: Array.isArray(users) ? users.length : 0,
-        totalApplications: Array.isArray(applications) ? applications.length : 0,
+        totalTeams: teamsRes.success && Array.isArray(teamsRes.data) ? teamsRes.data.length : 0,
+        totalMatches: matchesRes.success && Array.isArray(matchesRes.data) ? matchesRes.data.length : 0,
+        totalUsers: playersRes.success && Array.isArray(playersRes.data) ? playersRes.data.length : 0,
+        totalApplications: applicationsRes.success && Array.isArray(applicationsRes.data) ? applicationsRes.data.length : 0,
       });
     } catch (error) {
       console.error('Error fetching stats:', error);
@@ -66,14 +97,14 @@ export function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
+    <div className="min-h-screen bg-gray-50 mobile-padding">
       <div className="max-w-7xl mx-auto">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">HFL Boshqaruv</h1>
-          <p className="text-gray-600 mt-2">Havas Football League boshqaruv tizimi</p>
+        <div className="mb-6 sm:mb-8">
+          <h1 className="mobile-title text-gray-900">HFL Boshqaruv</h1>
+          <p className="mobile-text text-gray-600 mt-2">Havas Football League boshqaruv tizimi</p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="mobile-grid mb-6 sm:mb-8">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Jamoalar</CardTitle>
@@ -127,40 +158,40 @@ export function Dashboard() {
           </Card>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="mobile-grid lg:grid-cols-2">
           <Card>
             <CardHeader>
               <CardTitle>Tezkor Harakatlar</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
+              <div className="mobile-space-y">
                 <a 
                   href="/teams" 
-                  className="block p-4 border rounded-lg hover:bg-gray-50 transition-colors"
+                  className="mobile-card block hover:bg-gray-50 transition-colors"
                 >
-                  <h3 className="font-medium">Jamoalar</h3>
-                  <p className="text-sm text-gray-600">Jamoalarni boshqarish</p>
+                  <h3 className="mobile-subtitle">Jamoalar</h3>
+                  <p className="mobile-text text-gray-600">Jamoalarni boshqarish</p>
                 </a>
                 <a 
                   href="/matches" 
-                  className="block p-4 border rounded-lg hover:bg-gray-50 transition-colors"
+                  className="mobile-card block hover:bg-gray-50 transition-colors"
                 >
-                  <h3 className="font-medium">O'yinlar</h3>
-                  <p className="text-sm text-gray-600">O'yinlarni boshqarish</p>
+                  <h3 className="mobile-subtitle">O'yinlar</h3>
+                  <p className="mobile-text text-gray-600">O'yinlarni boshqarish</p>
                 </a>
                 <a 
                   href="/players" 
-                  className="block p-4 border rounded-lg hover:bg-gray-50 transition-colors"
+                  className="mobile-card block hover:bg-gray-50 transition-colors"
                 >
-                  <h3 className="font-medium">O'yinchilar</h3>
-                  <p className="text-sm text-gray-600">O'yinchilarni boshqarish</p>
+                  <h3 className="mobile-subtitle">O'yinchilar</h3>
+                  <p className="mobile-text text-gray-600">O'yinchilarni boshqarish</p>
                 </a>
                 <a 
                   href="/applications" 
-                  className="block p-4 border rounded-lg hover:bg-gray-50 transition-colors"
+                  className="mobile-card block hover:bg-gray-50 transition-colors"
                 >
-                  <h3 className="font-medium">Arizalar</h3>
-                  <p className="text-sm text-gray-600">Ligaga arizalarni ko'rish</p>
+                  <h3 className="mobile-subtitle">Arizalar</h3>
+                  <p className="mobile-text text-gray-600">Ligaga arizalarni ko'rish</p>
                 </a>
               </div>
             </CardContent>
@@ -171,22 +202,22 @@ export function Dashboard() {
               <CardTitle>Statistika</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600">Faol jamoalar</span>
-                  <span className="font-medium">{stats.totalTeams}</span>
+              <div className="mobile-space-y">
+                <div className="mobile-flex mobile-justify-between mobile-items-center">
+                  <span className="mobile-text text-gray-600">Faol jamoalar</span>
+                  <span className="mobile-text font-medium">{stats.totalTeams}</span>
                 </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600">Rejalashtirilgan o'yinlar</span>
-                  <span className="font-medium">{stats.totalMatches}</span>
+                <div className="mobile-flex mobile-justify-between mobile-items-center">
+                  <span className="mobile-text text-gray-600">Rejalashtirilgan o'yinlar</span>
+                  <span className="mobile-text font-medium">{stats.totalMatches}</span>
                 </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600">Ro'yxatdan o'tgan foydalanuvchilar</span>
-                  <span className="font-medium">{stats.totalUsers}</span>
+                <div className="mobile-flex mobile-justify-between mobile-items-center">
+                  <span className="mobile-text text-gray-600">Ro'yxatdan o'tgan foydalanuvchilar</span>
+                  <span className="mobile-text font-medium">{stats.totalUsers}</span>
                 </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600">Kutilayotgan arizalar</span>
-                  <span className="font-medium">{stats.totalApplications}</span>
+                <div className="mobile-flex mobile-justify-between mobile-items-center">
+                  <span className="mobile-text text-gray-600">Kutilayotgan arizalar</span>
+                  <span className="mobile-text font-medium">{stats.totalApplications}</span>
                 </div>
               </div>
             </CardContent>

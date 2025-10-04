@@ -22,6 +22,7 @@ import { collection, onSnapshot, query, orderBy, where } from 'firebase/firestor
 import { db } from '@/lib/firebase';
 import { AddPlayerModal } from '@/components/AddPlayerModal';
 import { EditPlayerModal } from '@/components/EditPlayerModal';
+import { ViewPlayerModal } from '@/components/ViewPlayerModal';
 
 interface Player {
   id: string;
@@ -54,6 +55,7 @@ export default function PlayersPage() {
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showViewModal, setShowViewModal] = useState(false);
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
 
   // Real-time Firebase listeners
@@ -136,20 +138,68 @@ export default function PlayersPage() {
     return matchesSearch && matchesTeam && matchesStatus;
   });
 
+  const handleViewPlayer = (player: Player) => {
+    setSelectedPlayer(player);
+    setShowViewModal(true);
+  };
+
   const handleEditPlayer = (player: Player) => {
     setSelectedPlayer(player);
     setShowEditModal(true);
   };
 
   const handleDeletePlayer = async (playerId: string) => {
-    if (!confirm('Bu o\'yinchini o\'chirishni xohlaysizmi?')) return;
+    const player = players.find(p => p.id === playerId);
+    if (!player) return;
+    
+    if (!confirm(`"${player.firstName} ${player.lastName}" o'yinchini o'chirishni xohlaysizmi?\n\nBu amal qaytarib bo'lmaydi va o'yinchi tizimga kira olmaydi.`)) return;
     
     try {
-      // Here you would implement delete functionality
-      toast.success('O\'yinchi o\'chirildi');
+      const { doc, deleteDoc, collection, query, where, getDocs } = await import('firebase/firestore');
+      
+      // Delete player from players collection
+      const playerRef = doc(db, 'players', playerId);
+      await deleteDoc(playerRef);
+      
+      // Delete player from standings
+      const standingsQuery = query(
+        collection(db, 'standings'),
+        where('playerId', '==', playerId)
+      );
+      const standingsSnapshot = await getDocs(standingsQuery);
+      
+      for (const docSnapshot of standingsSnapshot.docs) {
+        await deleteDoc(docSnapshot.ref);
+      }
+      
+      // Delete player from playerStats
+      const playerStatsQuery = query(
+        collection(db, 'playerStats'),
+        where('playerId', '==', playerId)
+      );
+      const playerStatsSnapshot = await getDocs(playerStatsQuery);
+      
+      for (const docSnapshot of playerStatsSnapshot.docs) {
+        await deleteDoc(docSnapshot.ref);
+      }
+      
+      // Delete player's transfer requests
+      const transferRequestsQuery = query(
+        collection(db, 'transferRequests'),
+        where('playerId', '==', playerId)
+      );
+      const transferRequestsSnapshot = await getDocs(transferRequestsQuery);
+      
+      for (const docSnapshot of transferRequestsSnapshot.docs) {
+        await deleteDoc(docSnapshot.ref);
+      }
+      
+      console.log('Player and all related data deleted:', playerId);
+      toast.success(`"${player.firstName} ${player.lastName}" o'yinchi va barcha bog'liq ma'lumotlar o'chirildi`);
+      
     } catch (error) {
       console.error('Error deleting player:', error);
-      toast.error('O\'yinchini o\'chirishda xatolik');
+      toast.error('O\'yinchi o\'chirishda xatolik');
     }
   };
 
@@ -283,7 +333,12 @@ export default function PlayersPage() {
                     </div>
                   </div>
                   <div className="flex space-x-1">
-                    <Button size="sm" variant="outline" title="Ko'rish">
+                    <Button 
+                      size="sm" 
+                      variant="outline" 
+                      title="Ko'rish"
+                      onClick={() => handleViewPlayer(player)}
+                    >
                       <Eye className="w-4 h-4" />
                     </Button>
                     <Button 
@@ -362,6 +417,16 @@ export default function PlayersPage() {
           setSelectedPlayer(null);
           toast.success('O\'yinchi ma\'lumotlari yangilandi!');
         }}
+      />
+
+      {/* View Player Modal */}
+      <ViewPlayerModal
+        isOpen={showViewModal}
+        onClose={() => {
+          setShowViewModal(false);
+          setSelectedPlayer(null);
+        }}
+        player={selectedPlayer}
       />
     </div>
   );

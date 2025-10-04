@@ -46,6 +46,7 @@ export function AddPlayerModal({ isOpen, onClose, onPlayerAdded }: AddPlayerModa
     lastName: '',
     phone: '',
     email: '',
+    password: '',
     photo: null as File | null,
     photoPreview: '',
     teamId: '',
@@ -113,7 +114,7 @@ export function AddPlayerModal({ isOpen, onClose, onPlayerAdded }: AddPlayerModa
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.firstName || !formData.lastName || !formData.phone || !formData.teamId) {
+    if (!formData.firstName || !formData.lastName || !formData.phone || !formData.teamId || !formData.password) {
       toast.error('Barcha majburiy maydonlarni to\'ldiring');
       return;
     }
@@ -148,6 +149,7 @@ export function AddPlayerModal({ isOpen, onClose, onPlayerAdded }: AddPlayerModa
         lastName: formData.lastName.trim(),
         phone: parsePhoneNumberForAPI(formData.phone),
         email: formData.email.trim() || '',
+        password: formData.password.trim(),
         photo: photoBase64,
         teamId: formData.teamId,
         teamName: selectedTeam.name,
@@ -177,6 +179,7 @@ export function AddPlayerModal({ isOpen, onClose, onPlayerAdded }: AddPlayerModa
         lastName: '',
         phone: '',
         email: '',
+        password: '',
         photo: null,
         photoPreview: '',
         teamId: '',
@@ -259,6 +262,21 @@ export function AddPlayerModal({ isOpen, onClose, onPlayerAdded }: AddPlayerModa
                   value={formData.email}
                   onChange={(e) => handleInputChange('email', e.target.value)}
                   placeholder="player@example.com"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Parol *
+                </label>
+                <Input
+                  type="password"
+                  value={formData.password}
+                  onChange={(e) => handleInputChange('password', e.target.value)}
+                  placeholder="O'yinchi paroli"
+                  required
                 />
               </div>
             </div>

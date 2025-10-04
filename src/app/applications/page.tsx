@@ -9,6 +9,7 @@ import { Check, X, Loader2, User, Users, RefreshCw, Eye, Mail, Phone, Calendar, 
 import toast from 'react-hot-toast';
 import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { smsService } from '@/lib/smsService';
 
 interface PlayerApplication {
   id: string;
@@ -256,6 +257,34 @@ export default function ApplicationsPage() {
 
       if (response.ok) {
         const result = await response.json();
+        
+        // Send SMS notification
+        const application = playerApplications.find(app => app.id === id);
+        if (application) {
+          try {
+            const smsResult = action === 'approve' 
+              ? await smsService.sendApplicationApprovalSMS(
+                  application.phone, 
+                  `${application.firstName} ${application.lastName}`, 
+                  'player'
+                )
+              : await smsService.sendApplicationRejectionSMS(
+                  application.phone, 
+                  `${application.firstName} ${application.lastName}`, 
+                  'player'
+                );
+            
+            if (smsResult.success) {
+              toast.success(`SMS xabari yuborildi: ${application.phone}`);
+            } else {
+              toast.warning(`Ariza ${action === 'approve' ? 'tasdiqlandi' : 'rad etildi'}, lekin SMS yuborilmadi`);
+            }
+          } catch (smsError) {
+            console.error('SMS send error:', smsError);
+            toast.warning(`Ariza ${action === 'approve' ? 'tasdiqlandi' : 'rad etildi'}, lekin SMS yuborilmadi`);
+          }
+        }
+        
         if (action === 'approve' && result.playerId) {
           toast.success(`O'yinchi arizasi tasdiqlandi va o'yinchilar ro'yxatiga qo'shildi!`);
         } else {
@@ -287,6 +316,34 @@ export default function ApplicationsPage() {
 
       if (response.ok) {
         const result = await response.json();
+        
+        // Send SMS notification
+        const application = teamApplications.find(app => app.id === id);
+        if (application) {
+          try {
+            const smsResult = action === 'approve' 
+              ? await smsService.sendApplicationApprovalSMS(
+                  application.contactPhone, 
+                  application.contactPerson, 
+                  'team'
+                )
+              : await smsService.sendApplicationRejectionSMS(
+                  application.contactPhone, 
+                  application.contactPerson, 
+                  'team'
+                );
+            
+            if (smsResult.success) {
+              toast.success(`SMS xabari yuborildi: ${application.contactPhone}`);
+            } else {
+              toast.warning(`Ariza ${action === 'approve' ? 'tasdiqlandi' : 'rad etildi'}, lekin SMS yuborilmadi`);
+            }
+          } catch (smsError) {
+            console.error('SMS send error:', smsError);
+            toast.warning(`Ariza ${action === 'approve' ? 'tasdiqlandi' : 'rad etildi'}, lekin SMS yuborilmadi`);
+          }
+        }
+        
         if (action === 'approve' && result.teamId) {
           toast.success(`Jamoa arizasi tasdiqlandi va jamoalar ro'yxatiga qo'shildi!`);
         } else {

@@ -127,6 +127,7 @@ const TransfersPage = () => {
   const handleStatusUpdate = async (id: string, status: 'approved' | 'rejected') => {
     try {
       console.log('Updating transfer request:', id, 'to status:', status);
+      console.log('Available transfer requests:', transferRequests);
       
       // Update transfer request status
       const { doc, updateDoc } = await import('firebase/firestore');
@@ -136,17 +137,89 @@ const TransfersPage = () => {
         updatedAt: new Date(),
       });
       
-      // If approved, update player's team
+      // If approved, update player's team and related data
       if (status === 'approved') {
         const transferRequest = transferRequests.find(req => req.id === id);
         if (transferRequest) {
+          console.log('Found transfer request:', transferRequest);
+          console.log('Approving transfer for player:', transferRequest.playerId);
+          console.log('Moving from team:', transferRequest.currentTeamName, 'to team:', transferRequest.newTeamName);
+          
+          // Check if player exists before updating
+          const { getDoc } = await import('firebase/firestore');
           const playerRef = doc(db, 'players', transferRequest.playerId);
+          const playerDoc = await getDoc(playerRef);
+          
+          if (!playerDoc.exists()) {
+            console.error('Player not found:', transferRequest.playerId);
+            alert('O\'yinchi topilmadi. Transfer so\'rovini rad eting.');
+            return;
+          }
+          
+          console.log('Player found, updating team information...');
+          
+          // Update player's team information
           await updateDoc(playerRef, {
             teamId: transferRequest.newTeamId,
             teamName: transferRequest.newTeamName,
             updatedAt: new Date(),
           });
-          console.log('Player team updated:', transferRequest.playerId);
+          
+          // Update player's standings in the new team
+          const { collection: col, addDoc, query: q, where, getDocs } = await import('firebase/firestore');
+          
+          // Remove player from old team standings
+          const oldStandingsQuery = q(
+            col(db, 'standings'),
+            where('teamId', '==', transferRequest.currentTeamId),
+            where('playerId', '==', transferRequest.playerId)
+          );
+          const oldStandingsSnapshot = await getDocs(oldStandingsQuery);
+          
+          if (!oldStandingsSnapshot.empty) {
+            const { deleteDoc } = await import('firebase/firestore');
+            for (const docSnapshot of oldStandingsSnapshot.docs) {
+              await deleteDoc(docSnapshot.ref);
+            }
+            console.log('Removed player from old team standings');
+          }
+          
+          // Add player to new team standings
+          const newStandingData = {
+            playerId: transferRequest.playerId,
+            teamId: transferRequest.newTeamId,
+            teamName: transferRequest.newTeamName,
+            playerName: `${transferRequest.playerId}`, // Will be updated with actual name
+            goals: 0,
+            assists: 0,
+            matchesPlayed: 0,
+            yellowCards: 0,
+            redCards: 0,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          };
+          
+          await addDoc(col(db, 'standings'), newStandingData);
+          console.log('Added player to new team standings');
+          
+          // Update player stats for the new team
+          const playerStatsData = {
+            playerId: transferRequest.playerId,
+            teamId: transferRequest.newTeamId,
+            teamName: transferRequest.newTeamName,
+            goals: 0,
+            assists: 0,
+            matchesPlayed: 0,
+            yellowCards: 0,
+            redCards: 0,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          };
+          
+          await addDoc(col(db, 'playerStats'), playerStatsData);
+          console.log('Created player stats for new team');
+          
+          console.log('Transfer completed successfully for player:', transferRequest.playerId);
         }
       }
       
@@ -155,9 +228,16 @@ const TransfersPage = () => {
       // Show success message
       const statusText = status === 'approved' ? 'tasdiqlandi' : 'rad etildi';
       alert(`Transfer so'rovi ${statusText}`);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating transfer request:', error);
-      alert('Xatolik yuz berdi');
+      
+      if (error.code === 'not-found') {
+        alert('O\'yinchi yoki transfer so\'rovi topilmadi');
+      } else if (error.code === 'permission-denied') {
+        alert('Transfer so\'rovini yangilash uchun ruxsat yo\'q');
+      } else {
+        alert(`Transfer so\'rovini yangilashda xatolik: ${error.message}`);
+      }
     }
   };
 

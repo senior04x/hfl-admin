@@ -12,6 +12,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Plus, Edit, Trash2, Eye, RefreshCw, Calendar, Clock, Users } from 'lucide-react';
 import { onSnapshot, collection, query, orderBy, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { pushNotificationService } from '@/lib/pushNotificationService';
 
 interface Team {
   id: string;
@@ -32,6 +33,7 @@ interface Match {
   status: 'scheduled' | 'live' | 'finished';
   venue?: string;
   referee?: string;
+  leagueType?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -55,6 +57,7 @@ const MatchesPage = () => {
     venue: '',
     referee: '',
     youtubeLink: '',
+    leagueType: '',
   });
 
   // Form data for editing match
@@ -65,6 +68,7 @@ const MatchesPage = () => {
     venue: '',
     referee: '',
     youtubeLink: '',
+    leagueType: '',
   });
 
   useEffect(() => {
@@ -107,6 +111,7 @@ const MatchesPage = () => {
             status: data.status || 'scheduled',
             venue: data.venue || '',
             referee: data.referee || '',
+            leagueType: data.leagueType || '',
             createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(data.createdAt),
             updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : new Date(data.updatedAt),
           });
@@ -184,12 +189,34 @@ const MatchesPage = () => {
         venue: newMatch.venue,
         referee: newMatch.referee,
         youtubeLink: newMatch.youtubeLink,
+        leagueType: newMatch.leagueType,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
 
       console.log('Adding match:', matchData);
       await addDoc(collection(db, 'matches'), matchData);
+      
+      // Send push notification about new match
+      try {
+        const matchDate = new Date(newMatch.matchDate).toLocaleDateString('uz-UZ');
+        const matchInfo = {
+          homeTeam: homeTeam.name,
+          awayTeam: awayTeam.name,
+          date: matchDate,
+          venue: newMatch.venue || 'Joy belgilanmagan',
+        };
+        
+        const notificationResult = await pushNotificationService.sendMatchNotification(matchInfo);
+        
+        if (notificationResult.success) {
+          console.log('Push notification sent for new match');
+        } else {
+          console.warn('Push notification failed:', notificationResult.message);
+        }
+      } catch (notificationError) {
+        console.error('Push notification error:', notificationError);
+      }
       
       setNewMatch({
         homeTeamId: '',
@@ -198,10 +225,11 @@ const MatchesPage = () => {
         venue: '',
         referee: '',
         youtubeLink: '',
+        leagueType: '',
       });
       setShowAddDialog(false);
       
-      alert('O\'yin muvaffaqiyatli qo\'shildi');
+      alert('O\'yin muvaffaqiyatli qo\'shildi va push xabari yuborildi');
     } catch (error) {
       console.error('Error adding match:', error);
       alert('Xatolik yuz berdi');
@@ -220,6 +248,7 @@ const MatchesPage = () => {
         venue: editMatch.venue,
         referee: editMatch.referee,
         youtubeLink: editMatch.youtubeLink,
+        leagueType: editMatch.leagueType,
         updatedAt: new Date(),
       });
 
@@ -319,6 +348,7 @@ const MatchesPage = () => {
       venue: match.venue || '',
       referee: match.referee || '',
       youtubeLink: match.youtubeLink || '',
+      leagueType: match.leagueType || '',
     });
     setShowEditDialog(true);
   };
@@ -397,6 +427,20 @@ const MatchesPage = () => {
                     value={newMatch.matchDate}
                     onChange={(e) => setNewMatch({...newMatch, matchDate: e.target.value})}
                   />
+                </div>
+                <div>
+                  <Label htmlFor="leagueType">Liga Turi</Label>
+                  <Select value={newMatch.leagueType} onValueChange={(value) => setNewMatch({...newMatch, leagueType: value})}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Liga turini tanlang" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="HFL 3-liga">HFL 3-liga</SelectItem>
+                      <SelectItem value="HFL Pro Liga">HFL Pro Liga</SelectItem>
+                      <SelectItem value="HFL Super Liga">HFL Super Liga</SelectItem>
+                      <SelectItem value="HFL Chempions Liga">HFL Chempions Liga</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
@@ -544,8 +588,10 @@ const MatchesPage = () => {
                         </div>
                       </div>
                       
-                      {(match.venue || match.referee) && (
+                      {(match.venue || match.referee || match.leagueType) && (
                         <div className="mt-2 text-sm text-gray-500">
+                          {match.leagueType && <span className="font-medium text-blue-600">Liga: {match.leagueType}</span>}
+                          {match.leagueType && (match.venue || match.referee) && <span> • </span>}
                           {match.venue && <span>Maydon: {match.venue}</span>}
                           {match.venue && match.referee && <span> • </span>}
                           {match.referee && <span>Hakam: {match.referee}</span>}
@@ -638,6 +684,21 @@ const MatchesPage = () => {
                     <SelectItem value="scheduled">Rejalashtirilgan</SelectItem>
                     <SelectItem value="live">Jarayonda</SelectItem>
                     <SelectItem value="finished">Tugagan</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div>
+                <Label htmlFor="editLeagueType">Liga Turi</Label>
+                <Select value={editMatch.leagueType} onValueChange={(value) => setEditMatch({...editMatch, leagueType: value})}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Liga turini tanlang" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="HFL 3-liga">HFL 3-liga</SelectItem>
+                    <SelectItem value="HFL Pro Liga">HFL Pro Liga</SelectItem>
+                    <SelectItem value="HFL Super Liga">HFL Super Liga</SelectItem>
+                    <SelectItem value="HFL Chempions Liga">HFL Chempions Liga</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

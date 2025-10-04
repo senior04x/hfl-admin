@@ -11,7 +11,8 @@ import {
   User, 
   Calendar, 
   Settings,
-  ArrowRightLeft
+  ArrowRightLeft,
+  BarChart3
 } from 'lucide-react';
 
 interface LayoutProps {
@@ -21,11 +22,13 @@ interface LayoutProps {
 const navigation = [
   { name: 'Boshqaruv paneli', href: '/', icon: LayoutDashboard },
   { name: 'Arizalar', href: '/applications', icon: FileText },
+  { name: 'Liga arizalari', href: '/league-applications', icon: FileText },
   { name: 'Transferlar', href: '/transfers', icon: ArrowRightLeft },
   { name: 'Mavsumlar', href: '/seasons', icon: Trophy },
   { name: 'Jamoalar', href: '/teams', icon: Users },
   { name: 'O\'yinchilar', href: '/players', icon: User },
   { name: 'O\'yinlar', href: '/matches', icon: Calendar },
+  { name: 'Turnir jadvali', href: '/standings', icon: BarChart3 },
   { name: 'Sozlamalar', href: '/settings', icon: Settings },
 ];
 

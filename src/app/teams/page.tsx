@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { toast } from 'react-hot-toast';
 import { Plus, Edit, Trash2, Eye, Users, User } from 'lucide-react';
 import { uploadImageToFirebase } from '@/lib/uploadImage';
+import { mongodbService } from '@/lib/mongodbService';
 
 interface Player {
   id: string;
@@ -59,27 +60,18 @@ export default function TeamsPage() {
   const loadTeams = async () => {
     try {
       setLoading(true);
-      console.log('Loading teams...');
-      const response = await fetch('/api/teams');
-      console.log('Response status:', response.status);
+      console.log('Loading teams from MongoDB API...');
       
-      if (response.ok) {
-        const teamsData = await response.json();
-        console.log('Teams data received:', teamsData);
-        
-        // Ensure teams data is valid
-        const validTeams = Array.isArray(teamsData) ? teamsData.filter(team => 
-          team && team.id && team.name
-        ) : [];
-        
-        console.log('Valid teams:', validTeams.length);
-        setTeams(validTeams);
+      const result = await mongodbService.getTeams();
+      
+      if (result.success && Array.isArray(result.data)) {
+        console.log('Teams data received:', result.data);
+        setTeams(result.data);
       } else {
-        const errorText = await response.text();
-        console.error('API Error:', response.status, errorText);
-        toast.error('Jamoalar yuklanmadi: ' + response.status);
+        console.error('API Error:', result.error);
+        toast.error('Jamoalar yuklanmadi: ' + (result.error || 'Noma\'lum xatolik'));
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error loading teams:', error);
       toast.error('Jamoalar yuklanmadi: ' + error.message);
     } finally {
@@ -111,15 +103,9 @@ export default function TeamsPage() {
         logo: logoUrl
       };
 
-      const response = await fetch('/api/teams', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(teamData),
-      });
+      const result = await mongodbService.createTeam(teamData);
 
-      if (response.ok) {
+      if (result.success) {
         toast.success('Jamoa muvaffaqiyatli qo\'shildi');
         setNewTeam({ name: '', foundedDate: '', logo: '', color: '#3B82F6' });
         setLogoFile(null);
@@ -127,8 +113,7 @@ export default function TeamsPage() {
         setShowAddForm(false);
         loadTeams();
       } else {
-        const error = await response.json();
-        toast.error(error.error || 'Jamoa qo\'shishda xatolik');
+        toast.error(result.error || 'Jamoa qo\'shishda xatolik');
       }
     } catch (error) {
       console.error('Error creating team:', error);
@@ -175,15 +160,9 @@ export default function TeamsPage() {
         logo: logoUrl
       };
 
-      const response = await fetch('/api/teams', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(teamData),
-      });
+      const result = await mongodbService.updateTeam(editingTeam.id, teamData);
 
-      if (response.ok) {
+      if (result.success) {
         toast.success('Jamoa muvaffaqiyatli yangilandi');
         setNewTeam({ name: '', foundedDate: '', logo: '', color: '#3B82F6' });
         setLogoFile(null);
@@ -192,8 +171,7 @@ export default function TeamsPage() {
         setShowAddForm(false);
         loadTeams();
       } else {
-        const error = await response.json();
-        toast.error(error.error || 'Jamoa yangilashda xatolik');
+        toast.error(result.error || 'Jamoa yangilashda xatolik');
       }
     } catch (error) {
       console.error('Error updating team:', error);
@@ -208,16 +186,13 @@ export default function TeamsPage() {
     }
 
     try {
-      const response = await fetch(`/api/teams?id=${teamId}`, {
-        method: 'DELETE',
-      });
+      const result = await mongodbService.deleteTeam(teamId);
 
-      if (response.ok) {
+      if (result.success) {
         toast.success('Jamoa muvaffaqiyatli o\'chirildi');
         loadTeams();
       } else {
-        const error = await response.json();
-        toast.error(error.error || 'Jamoa o\'chirishda xatolik');
+        toast.error(result.error || 'Jamoa o\'chirishda xatolik');
       }
     } catch (error) {
       console.error('Error deleting team:', error);
